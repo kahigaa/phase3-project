@@ -1,0 +1,2 @@
+[console_scripts]
+health_simplified = myapp.main:app
