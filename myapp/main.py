@@ -184,6 +184,7 @@ def delete_meal_plan(
         else:
             typer.echo(f"⚠️ Meal plan with ID {id} not found.")
 
+
 # register subcommands 
 app.add_typer(user_app, name="user")
 app.add_typer(entry_app, name="entry")
