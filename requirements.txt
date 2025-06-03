@@ -1,8 +1,10 @@
+build==1.2.2.post1
 certifi==2025.4.26
 click==8.2.1
 distlib==0.3.9
 filelock==3.18.0
 greenlet==3.2.2
+health_simplified @ file:///mnt/c/users/kahig/onedrive/desktop/moringa/phase-3/phase3-project/dist/health_simplified-0.1.0-py3-none-any.whl#sha256=9961472bc84715a2778aea8293ddbecb99fb7e2360012c1a7cc2fd4b567085b7
 iniconfig==2.1.0
 markdown-it-py==3.0.0
 mdurl==0.1.2
@@ -11,6 +13,7 @@ pipenv==2025.0.2
 platformdirs==4.3.8
 pluggy==1.6.0
 Pygments==2.19.1
+pyproject_hooks==1.2.0
 pytest==8.3.5
 rich==14.0.0
 setuptools==80.7.1
