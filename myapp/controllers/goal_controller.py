@@ -13,5 +13,4 @@ def set_goal(session: Session, user_id: int, daily: int, weekly: int) -> Goal:
     return goal
 
 def list_goals(session: Session, user_id: int):
-    """List goals for a specific user."""
-    return session.query(Goal).filter(Goal.user_id == user_id).all()
+    return session.query(Goal).filter(Goal.user_id == user_id).order_by(Goal.id.desc()).all()

@@ -1,3 +1,4 @@
+
 import typer
 from datetime import date
 from typing import Optional
@@ -8,7 +9,10 @@ from myapp.controllers import (
     goal_controller,
     meal_controller,
 )
+import json
+from typing import Optional
 
+from myapp.models.meal_plan import MealPlan
 app = typer.Typer()
 
 # Subcommand grp
@@ -16,6 +20,7 @@ user_app = typer.Typer()
 entry_app = typer.Typer()
 goal_app = typer.Typer()
 meal_plan_app = typer.Typer()
+report_app = typer.Typer()
 
 
 # User comds
@@ -79,7 +84,6 @@ def update_entry(
     calories: Optional[int] = typer.Option(None, "--calories", help="Updated calories"),
     entry_date: Optional[str] = typer.Option(None, "--entry-date", help="Updated date (YYYY-MM-DD)")
 ):
-    """Update a food entry."""
     with SessionLocal() as session:
         updated = foodentry_controller.update_food_entry(session, id, food, calories, entry_date)
         if updated:
@@ -89,7 +93,6 @@ def update_entry(
 
 @entry_app.command("delete")
 def delete_entry(id: int = typer.Option(..., "--id", help="ID of the food entry to delete")):
-    """Delete a food entry."""
     with SessionLocal() as session:
         success = foodentry_controller.delete_food_entry(session, id)
         if success:
@@ -105,7 +108,6 @@ def set_goal(
     daily: int = typer.Option(..., "--daily", help="Daily calorie goal"),
     weekly: int = typer.Option(..., "--weekly", help="Weekly calorie goal")
 ):
-    """Set calorie goals for a user."""
     with SessionLocal() as session:
 
         user_obj = user_controller.get_user_by_name(session, user)
@@ -121,7 +123,6 @@ def set_goal(
 def list_goals(
     user: str = typer.Option(..., "--user", help="Name of the user")
 ):
-    """List goals for a user."""
     with SessionLocal() as session:
     
         user_obj = user_controller.get_user_by_name(session, user)
@@ -142,54 +143,112 @@ def list_goals(
 @meal_plan_app.command("create")
 def create_meal_plan(
     user: str = typer.Option(..., "--user", help="Name of the user"),
-    week: int = typer.Option(..., "--week", help="Week number for the meal plan")
+    week: int = typer.Option(..., "--week", help="Week number for the meal plan"),
+    meals: str = typer.Option(..., "--meals", help="Planned meals in JSON format")
 ):
-    """Create a weekly meal plan."""
     with SessionLocal() as session:
-       
         user_obj = user_controller.get_user_by_name(session, user)
         if not user_obj:
             typer.echo(f"❌ User '{user}' not found.")
             raise typer.Exit(code=1)
 
-        plan = meal_controller.create_meal_plan(session, user_obj.id, week)
-        typer.echo(f"📅 Meal plan for week {plan.week} created for user '{user}'.")
+        try:
+            meals_data = json.loads(meals)  
+        except json.JSONDecodeError:
+            typer.echo("❌ Invalid JSON format for meals.")
+            raise typer.Exit(code=1)
 
+        plan = meal_controller.create_meal_plan(session, user_obj.id, week, meals_data)
+        typer.echo(f"📅 Meal plan for week {plan.week} created for user '{user}' with meals: {plan.meals}.")
 
 @meal_plan_app.command("update")
 def update_meal_plan(
     id: int = typer.Option(..., "--id", help="ID of the meal plan to update"),
-    week: Optional[int] = typer.Option(None, "--week", help="Updated week number")
+    week: Optional[int] = typer.Option(None, "--week", help="Updated week number"),
+    meals: Optional[str] = typer.Option(None, "--meals", help="Updated meals in JSON format")
 ):
-    """Update an existing meal plan."""
     with SessionLocal() as session:
-        
-        updated = meal_controller.update_meal_plan(session, id, week)
+        meals_data = None
+        if meals:
+            try:
+                meals_data = json.loads(meals)  
+            except json.JSONDecodeError:
+                typer.echo("❌ Invalid JSON format for meals.")
+                raise typer.Exit(code=1)
+
+        updated = meal_controller.update_meal_plan(session, id, week, meals_data)
         if updated:
             typer.echo(f"🔁 Meal plan with ID {id} updated.")
         else:
             typer.echo(f"⚠️ Meal plan with ID {id} not found.")
-
-
-@meal_plan_app.command("delete")
-def delete_meal_plan(
-    id: int = typer.Option(..., "--id", help="ID of the meal plan to delete")
+@meal_plan_app.command("list")
+def list_meal_plans(
+    user: Optional[str] = typer.Option(None, "--user", help="Name of the user")
 ):
-    """Delete a meal plan."""
+    
     with SessionLocal() as session:
-        
-        deleted = meal_controller.delete_meal_plan(session, id)
-        if deleted:
-            typer.echo(f"🗑️ Meal plan with ID {id} deleted.")
+        if user:
+            user_obj = user_controller.get_user_by_name(session, user)
+            if not user_obj:
+                typer.echo(f"❌ User '{user}' not found.")
+                raise typer.Exit(code=1)
+            meal_plans = session.query(MealPlan).filter(MealPlan.user_id == user_obj.id).all()
         else:
-            typer.echo(f"⚠️ Meal plan with ID {id} not found.")
+            meal_plans = session.query(MealPlan).all()
+
+        if not meal_plans:
+            typer.echo("📭 No meal plans found.")
+            return
+
+        typer.echo("📋 Meal Plans:")
+        for plan in meal_plans:
+            typer.echo(f"- ID: {plan.id}, User ID: {plan.user_id}, Week: {plan.week}, Meals: {plan.meals}")
+
+#report commands 
+@report_app.command("daily")
+def daily_report(
+    user: str = typer.Option(..., "--user", help="User name"),
+    report_date: str = typer.Option(..., "--date", help="Date of the report (YYYY-MM-DD)")
+):
+    with SessionLocal() as session:
+        user_obj = user_controller.get_user_by_name(session, user)
+        if not user_obj:
+            typer.echo(f"❌ User '{user}' not found.")
+            raise typer.Exit(code=1)
+
+        try:
+            d = date.fromisoformat(report_date)
+        except ValueError:
+            typer.echo("❌ Invalid date format. Use YYYY-MM-DD.")
+            raise typer.Exit(code=1)
+
+        entries = foodentry_controller.list_food_entries(session, user_id=user_obj.id, entry_date=d)
+        total_calories = sum(e.calories for e in entries)
+
+        goals = goal_controller.list_goals(session, user_obj.id)
+        daily_goal = goals[-1].daily if goals else None
+        
+        typer.echo(f"📅 Report for {report_date}:")
+        typer.echo(f"- Total Calories Consumed: {total_calories} cal")
+        if daily_goal is not None:
+            typer.echo(f"- Daily Goal: {daily_goal} cal")
+        else:
+            typer.echo("- Daily Goal: Not set")        
+        if entries:
+            typer.echo("\nEntries:")
+            for e in entries:
+                typer.echo(f"  - {e.food}: {e.calories} cal")
+        else:
+            typer.echo("\nNo entries found for this day.")
 
 
 # register subcommands 
 app.add_typer(user_app, name="user")
 app.add_typer(entry_app, name="entry")
 app.add_typer(goal_app, name="goal")
-app.add_typer(meal_plan_app, name="meal")
+app.add_typer(meal_plan_app, name="plan-meal")
+app.add_typer(report_app, name="report")
+
 
 
 if __name__ == "__main__":
