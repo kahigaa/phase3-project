@@ -26,11 +26,9 @@ Run the CLI app from your terminal:
 - myapp.main goal set --user <name> --daily <int> --weekly <int>
 - myapp.main goal list --user <name>
 ## Meal Planning
-- myapp.main plan-meal create --user <name> --week <int>
-- myapp.main plan-meal update --id <int> [fields...]
+- myapp.main plan-meal create --user <name> --week 
+- myapp.main plan-meal update --id <int> 
 - myapp.main plan-meal list --user 
 ## Reporting
-- myapp.main report daily --user <name> --date 
+- myapp.main report daily --user <name> --date
 
-# Run tests
-- pytest

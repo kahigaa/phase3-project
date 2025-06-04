@@ -143,44 +143,43 @@ def list_goals(
 @meal_plan_app.command("create")
 def create_meal_plan(
     user: str = typer.Option(..., "--user", help="Name of the user"),
-    week: int = typer.Option(..., "--week", help="Week number for the meal plan"),
-    meals: str = typer.Option(..., "--meals", help="Planned meals in JSON format")
+    week: int = typer.Option(..., "--week", help="Week number for the meal plan")
 ):
     with SessionLocal() as session:
         user_obj = user_controller.get_user_by_name(session, user)
         if not user_obj:
             typer.echo(f"❌ User '{user}' not found.")
             raise typer.Exit(code=1)
-
-        try:
-            meals_data = json.loads(meals)  
-        except json.JSONDecodeError:
-            typer.echo("❌ Invalid JSON format for meals.")
-            raise typer.Exit(code=1)
-
-        plan = meal_controller.create_meal_plan(session, user_obj.id, week, meals_data)
+        days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        meals = {}
+        typer.echo("🍽️ Enter meals for each day of the week:")
+        for day in days:
+            meal = typer.prompt(f"{day}'s meal")
+            meals[day] = meal
+        plan = meal_controller.create_meal_plan(session, user_obj.id, week, meals)
         typer.echo(f"📅 Meal plan for week {plan.week} created for user '{user}' with meals: {plan.meals}.")
 
 @meal_plan_app.command("update")
 def update_meal_plan(
     id: int = typer.Option(..., "--id", help="ID of the meal plan to update"),
-    week: Optional[int] = typer.Option(None, "--week", help="Updated week number"),
-    meals: Optional[str] = typer.Option(None, "--meals", help="Updated meals in JSON format")
+    week: Optional[int] = typer.Option(None, "--week", help="Updated week number")
 ):
     with SessionLocal() as session:
-        meals_data = None
-        if meals:
-            try:
-                meals_data = json.loads(meals)  
-            except json.JSONDecodeError:
-                typer.echo("❌ Invalid JSON format for meals.")
-                raise typer.Exit(code=1)
-
-        updated = meal_controller.update_meal_plan(session, id, week, meals_data)
-        if updated:
-            typer.echo(f"🔁 Meal plan with ID {id} updated.")
-        else:
+        plan = session.query(MealPlan).filter(MealPlan.id == id).first()
+        if not plan:
             typer.echo(f"⚠️ Meal plan with ID {id} not found.")
+            raise typer.Exit(code=1)        
+        if week:
+            plan.week = week        
+        typer.echo(f"📋 Current meals for week {plan.week}: {plan.meals}")
+        typer.echo("🍽️ Enter updated meals for specific days (leave blank to keep current meal):")
+        updated_meals = plan.meals.copy()  
+        for day, current_meal in plan.meals.items():
+            new_meal = typer.prompt(f"{day}'s meal (current: {current_meal})", default=current_meal)
+            updated_meals[day] = new_meal        
+        plan.meals = updated_meals
+        session.commit()
+        typer.echo(f"🔁 Meal plan with ID {id} updated successfully.")
 @meal_plan_app.command("list")
 def list_meal_plans(
     user: Optional[str] = typer.Option(None, "--user", help="Name of the user")
